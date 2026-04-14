@@ -1,0 +1,31 @@
+study,representative patient group,adequate case definition,outcome assessor blinding,outcome patient blinding,outcome objectivity (clustering features),Follow-up,attrition,analysis bias,confounding,reporting bias
+Anderson 2025,low,low,N/A,N/A,high (patient report),low,moderate,low,moderate,low
+Armañanzas 2024,low,low,N/A,N/A,low,low,moderate,low,high,low
+Bailie 2016,moderate (only males),low,N/A,N/A,high (patient report),low,high (missing data dropped),low,moderate,low
+Blundell 2025,low,low,N/A,N/A,high (patient report),low,high (missing data dropped),low,moderate,low
+Bui 2022,low,low,N/A,N/A,low,low,low,low,moderate,low
+Chan 2003,low,low,N/A,N/A,moderate (patient effort),low,moderate,low,moderate,low
+Cicerone 1995,low,low,N/A,N/A,high (patient report),moderate,moderate,low,moderate,low
+Fino 2022,low,low,N/A,N/A,moderate (patient effort),low,moderate,moderate,moderate,low
+Garcia 2022,low,low,N/A,N/A,moderate (patient effort),low,low,low,moderate,low
+Gumus 2022,low,low,N/A,N/A,low,high,moderate,low,moderate,low
+Hanlon 1999,low,low,N/A,N/A,low,low,moderate,moderate,moderate,low
+Hicks 2022,low,low,N/A,N/A,low,low,low,low,moderate,low
+Ingram 2023,low,low,N/A,N/A,high (patient report),low,moderate,low,moderate,low
+Kinney 2024,low,low,N/A,N/A,high (patient report),low,high (missing data dropped),low,moderate,low
+Lyons 2022,low,low,N/A,N/A,high (patient report),low,high (missing data dropped),moderate (no validation),low,low
+Macgregor 2024,low,low,N/A,N/A,high (patient report),low,moderate,low,moderate,low
+Maestas 2014,low,low,N/A,N/A,high (patient report),low,high (missing data dropped),low,moderate,low
+Maietta 2022,low,low,N/A,N/A,moderate (patient effort),low,high (missing data dropped),low,moderate,low
+Pugh 2019,low,low,N/A,N/A,high (patient report),low,moderate,low,moderate,low
+Rabinowitz 2013,low,low,N/A,N/A,moderate (patient effort),low,high (missing data dropped),low,moderate,low
+Rakers 2021,low,low,N/A,N/A,high (patient report),low,high (missing data dropped),low,moderate,low
+Ransom 2016,low,low,N/A,N/A,moderate (patient effort),low,moderate,low,moderate,low
+Si 2018a,low,low,N/A,N/A,moderate (patient effort),low,low,low,moderate,low
+Si 2018b,low,low,N/A,N/A,moderate (patient effort),low,low,low,moderate,low
+Rosenblatt 2021,low,low,N/A,N/A,high (patient report),low,moderate,low,high,low
+Simons 2024,low,low,N/A,N/A,moderate (patient effort),low,low,low,moderate,low
+Snell 2015,low,low,N/A,N/A,high (patient report),low,high (missing data dropped),low,moderate,low
+Thaler 2013,moderate (few females),low,N/A,N/A,moderate (patient effort),low,high (missing data dropped),low,moderate,low
+Visscher 2019,low,low,N/A,N/A,low,low,high (missing data dropped),low,moderate,low
+Yeates 2019,low,low,N/A,N/A,high (patient report),low,high (missing data dropped),low,moderate,low
