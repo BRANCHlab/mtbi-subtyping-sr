@@ -1,0 +1,1466 @@
+# Systematic review extraction parsing
+
+- [x] authors: nothing
+- [x] study_id: nothing
+- [x] contextualization: comment (nothing)
+- [x] follow_up_actions: comment (nothing)
+- [x] missing_data_handling: comment (nothing)
+- [x] notes: nothing
+- [x] clustering_features: none
+- [x] other_features: none
+
+- [x] year: histogram demonstrating frequency of mTBI subtyping studies
+- [x] concussion_definition: heatmap of different criteria of mTBI/concussion definition used
+- [x] population: bar chart of populations examined
+- [x] age: linerange plot of ages examined
+- [x] n_male: include in histogram above
+- [x] n_female: include in histogram above
+- [x] n: histogram of sample sizes examined
+- [x] race_ethnicity: heatmap
+- [x] time_post_injury: complex figure 1
+- [x] clustering_method: bar chart (easy?)
+- [x] validation_method: bar chart (easy)
+- [x] summary: complex figure 2 (tough)
+
+
+## Importing extraction, helper functions
+
+```{r}
+# {{{
+library(jsonlite)
+library(ggplot2)
+library(dplyr)
+library(stringr)
+library(ComplexHeatmap)
+library(circlize)
+library(viridis)
+
+data <- fromJSON("../extraction.json")
+
+fig_path <- function(path) {
+    return(paste0("figures/", format(Sys.Date(), "%Y_%m_%d"), "_", path, ".png"))
+}
+
+# }}}
+```
+
+## Study summary
+
+```{r}
+tibble(# {{{
+    Study = data$"clean_name",
+    "Population type" = data$"population",
+    N = data$"n",
+    "Clustering method" = data$"clustering_method",
+    "Validation method" = "",
+    "Time post-injury" = data$"time_post_injury",
+    "Identified clusters" = ""
+) |>
+    knitr::kable(format = "markdown")
+
+for (name in names(data)) {
+    print(name)
+}# }}}
+```
+
+### Missing data
+
+```{r}
+# {{{
+table(data$"missing_data_handling")
+# }}}
+```
+
+
+## Year
+
+```{r}
+# {{{
+year_histogram <-data.frame(data$"year") |>
+    ggplot(aes(x = data.year)) +
+    geom_histogram(
+        binwidth = 1,
+        fill = "gray",
+        colour = "black"
+    ) + 
+    coord_cartesian(xlim = c(1995, 2025)) +
+    scale_y_continuous(
+        breaks = 1:6,
+        minor_breaks = NULL
+    ) +
+    scale_x_continuous(
+        breaks = c(unique(data$"year")),
+        minor_breaks = NULL,
+        expand = expansion(mult = c(0.02, 0.02))
+    ) +
+    labs(x = "Year of publication", y = "Number of studies") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggsave(
+    fig_path("year_histogram.png"),
+    year_histogram,
+    width = 6,
+    height = 3,
+    dpi = 300
+)
+# }}}
+```
+
+### Concussion definition
+
+```{r}
+# {{{
+
+library(ComplexHeatmap)
+library(circlize)
+concussion_df <- data$"concussion_definition"
+rownames(concussion_df) <- data$"clean_name"
+clustered_df <- concussion_df |>
+    dplyr::mutate(
+        at_least_one_symptom = dplyr::case_when(
+            at_least_one_symptom  == "NR" ~ 0,
+            at_least_one_symptom  == "Yes" ~ 1,
+            TRUE ~ NA
+        ),
+        altered_mental_state = dplyr::case_when(
+            altered_mental_state  == "NR" ~ 0,
+            altered_mental_state  == "<= 30 minutes" ~ 1,
+            altered_mental_state  == "<= 24 hours" ~ 2,
+            altered_mental_state  == "Any" ~ 3,
+            TRUE ~ NA
+        ),
+        focal_neurological_signs = dplyr::case_when(
+            focal_neurological_signs == "NR" ~ 0,
+            focal_neurological_signs == "Transient" ~ 1,
+            focal_neurological_signs == "Any" ~ 2,
+            TRUE ~ NA
+        ),
+        gcs = dplyr::case_when(
+            gcs == "NR" ~ 0,
+            gcs == ">= 14" ~ 1,
+            gcs == ">= 13" ~ 2,
+            TRUE ~ NA
+        ),
+        hospitalization_time_less_24 = dplyr::case_when(
+            hospitalization_time_less_24 == "NR" ~ 0,
+            hospitalization_time_less_24 == "<= 24 hours" ~ 1,
+            TRUE ~ NA
+        ),
+        impaired_balance_less_24 = dplyr::case_when(
+            impaired_balance_less_24 == "NR" ~ 0,
+            impaired_balance_less_24 == "Yes" ~ 1,
+            TRUE ~ NA
+        ),
+        impaired_learning_and_memory_less_48 = dplyr::case_when(
+            impaired_learning_and_memory_less_48 == "NR" ~ 0,
+            impaired_learning_and_memory_less_48 == "Yes" ~ 1,
+            TRUE ~ NA
+        ),
+        loc = dplyr::case_when(
+            loc == "NR" ~ 0,
+            loc == "<= 30 minutes" ~ 1,
+            loc == "Any" ~ 2,
+            TRUE ~ NA
+        ),
+        normal_imaging = dplyr::case_when(
+            normal_imaging == "NR" ~ 0,
+            normal_imaging == "Yes" ~ 1,
+            TRUE ~ NA
+        ),
+        post_traumatic_amnesia = dplyr::case_when(
+            post_traumatic_amnesia == "NR" ~ 0,
+            post_traumatic_amnesia == "<= 24 hours" ~ 1,
+            post_traumatic_amnesia == "Any" ~ 2,
+            TRUE ~ NA
+        ),
+        reduced_reaction_less_48 = dplyr::case_when(
+            reduced_reaction_less_48 == "NR" ~ 0,
+            reduced_reaction_less_48 == "Yes" ~ 2,
+            TRUE ~ NA
+        ),
+        restricted_activity_more_5 = dplyr::case_when(
+            restricted_activity_more_5 == "NR" ~ 0,
+            restricted_activity_more_5 == "Yes" ~ 1,
+            TRUE ~ NA
+        ),
+        other_algorithm = dplyr::case_when(
+            other_algorithm == "NR" ~ 0,
+            other_algorithm == "Yes" ~ 1,
+            TRUE ~ NA
+        ),
+        diagnosis = dplyr::case_when(
+            diagnosis == "NR" ~ 0,
+            diagnosis == "Yes" ~ 1,
+            TRUE ~ NA
+        )
+    )
+ht <- draw(Heatmap(as.matrix(clustered_df)))
+roword <- rownames(clustered_df)[row_order(ht)]
+colord <- colnames(clustered_df)[column_order(ht)]
+neat_names <- c(
+    "At least one symptom",
+    "Altered mental state",
+    "Focal neurological signs",
+    "Glasgow Coma Scale",
+    "Hospitalization less than 24h",
+    "Impaired balance less than 24h",
+    "Impaired learning and memory",
+    "Loss of consciousness",
+    "Normal structural imaging",
+    "Post-traumatic amnesia",
+    "Reduced reaction time",
+    "Restricted activity more than 5d",
+    "Other algorithm",
+    "Diagnosis"
+)
+colour_schemes <- list(
+    "At least one symptom"              =  c("NR"  =  "white" , "Yes"            =  "darkorchid2") ,
+    "Altered mental state"              =  c("NR"  =  "white" , "Any"            =  "lightblue4"   , "<= 30 minutes"  =  "palegreen"   , "<= 24 hours"  =  "royalblue") ,
+    "Focal neurological signs"          =  c("NR"  =  "white" , "Any"            =  "deeppink"     , "Transient"      =  "cyan4")      ,
+    "Glasgow Coma Scale"                =  c("NR"  =  "white" , ">= 14"          =  "palegreen4"   , ">= 13"          =  "lightblue4") ,
+    "Hospitalization less than 24h"     =  c("NR"  =  "white" , "Yes"            =  "darkorchid2") ,
+    "Impaired balance less than 24h"    =  c("NR"  =  "white" , "Yes"            =  "darkorchid2") ,
+    "Impaired learning and memory"      =  c("NR"  =  "white" , "Yes"            =  "darkorchid2") ,
+    "Loss of consciousness"             =  c("NR"  =  "white" , "<= 30 minutes"  =  "lightblue4"   , "Any"            =  "deeppink")   ,
+    "Normal structural imaging"         =  c("NR"  =  "white" , "Yes"            =  "darkorchid2") ,
+    "Post-traumatic amnesia"            =  c("NR"  =  "white" , "<= 24 hours"    =  "lightblue4"   , "Any"            =  "deeppink")   ,
+    "Reduced reaction time"             =  c("NR"  =  "white" , "Yes"            =  "darkorchid2") ,
+    "Restricted activity more than 5d"  =  c("NR"  =  "white" , "Yes"            =  "darkorchid2") ,
+    "Other algorithm"                   =  c("NR"  =  "white" , "Yes"            =  "darkorchid2") ,
+    "Diagnosis"                         =  c("NR"  =  "white" , "Yes"            =  "darkorchid2")
+)
+heatmap_row_order <- c(
+    "Hanlon 1999",
+    "Maestas 2014",
+    "Snell 2015",
+    "Thaler 2013",
+    "Blundell 2025",
+    "Cicerone 1995",
+    "Bailie 2016",
+    "Anderson 2025",
+    "Bui 2022",
+    "Kinney 2024",
+    "Ingram 2023",
+    "Pugh 2019",
+    "Rakers 2021",
+    "Fino 2022",
+    "Armañanzas 2024",
+    "Macgregor 2024",
+    "Lyons 2022",
+    "Yeates 2019",
+    "Chan 2003",
+    "Gumus 2022",
+    "Garcia 2022",
+    "Si 2018a",
+    "Si 2018b",
+    "Hicks 2022",
+    "Maietta 2022",
+    "Rabinowitz 2013",
+    "Ransom 2016",
+    "Rosenblatt 2021",
+    "Simons 2024",
+    "Visscher 2019"
+)
+concussion_df[concussion_df == "NR"] <- NA
+hms <- lapply(
+    seq_len(ncol(concussion_df)),
+    function(i) {
+        mat <- matrix(concussion_df[, i])
+        rownames(mat) <- rownames(concussion_df)
+        colnames(mat) <- neat_names[i]
+        mat <- mat[heatmap_row_order, , drop = FALSE]
+        legend <- FALSE
+        # Column 12's legend is used as a placeholder for all binary 
+        # columns.
+        if (i %in% c(2, 4, 10, 8, 3, 14)) {
+            legend <- TRUE
+        }
+        if (i == 14) {
+            mat_name <- "Other"
+        } else {
+            mat_name <- neat_names[i]
+        }
+        Heatmap(
+            mat,
+            name = mat_name,
+            row_names_side = "left",
+            na_col = "white",
+            col = colour_schemes[[i]],
+            rect_gp = gpar(col = "black", lwd = 1),
+            show_heatmap_legend = legend,
+            column_names_rot = 45
+        )
+    }
+)
+names(hms) <- colnames(concussion_df)
+heatmap_order <- c(
+    "altered_mental_state",
+    "gcs",
+    "post_traumatic_amnesia",
+    "loc",
+    "focal_neurological_signs",
+    "at_least_one_symptom",
+    "normal_imaging",
+    "hospitalization_time_less_24",
+    "impaired_balance_less_24",
+    "impaired_learning_and_memory_less_48",
+    "reduced_reaction_less_48",
+    "restricted_activity_more_5",
+    "surgery_not_needed",
+    "other_algorithm",
+    "diagnosis"
+)
+hms <- hms[heatmap_order]
+ht <- Reduce(`+`, hms)
+draw(ht, ht_gap = unit(0, "mm"))
+
+pdf("figures/2026_04_01_concussion_definition.pdf", width = 9, height = 8)
+draw(
+  ht,
+  ht_gap = unit(0, "mm")
+)
+dev.off()
+
+# }}}
+```
+
+### Population
+
+```{r}
+# {{{
+pop_df <- data.frame(
+    population = str_to_sentence(data$"population")
+)
+pop_df$"population" <- gsub(" and ", " and \n", pop_df$"population")
+pop_plot <- pop_df |>
+    ggplot(
+        aes(x = reorder(population, population, FUN = length, decreasing = TRUE))
+    ) +
+    geom_bar() +
+    scale_y_continuous(
+        breaks = 0:18,
+        minor_breaks = NULL
+    ) +
+    labs(x = "Population examined", y = "Number of studies") +
+    theme_bw() +
+    theme(
+        text = element_text(size = 12)
+    )
+ggsave(
+    fig_path("pop_plot"),
+    pop_plot,
+    width = 5,
+    height = 4,
+    dpi = 300
+)
+# }}}
+```
+
+### Age
+
+```{r}
+# {{{
+age_df <- data$"age" |>
+    mutate(author = data$"clean_name")
+age_df[age_df == "not reported"] <- NA
+age_df[, 1:4] <- data.frame(apply(age_df[, 1:4], 2, function(x) as.numeric(x)))
+age_df$"sd_low" <- age_df$"mean" - age_df$"sd"
+age_df$"sd_high" <- age_df$"mean" + age_df$"sd"
+age_df <- arrange(age_df, mean)
+age_df$"author" <- factor(age_df$"author", levels = age_df$"author")
+age_df <- age_df |>
+    filter(!author %in% c("Bui 2022", "Si 2018b"))
+age_plot <- age_df |>
+    ggplot(aes(x = author)) +
+    geom_linerange(aes(ymin = minimum, ymax = maximum, colour = "Range"), linewidth = 2, alpha = 0.6) +
+    geom_linerange(aes(ymin = sd_low, ymax = sd_high, colour = "Standard deviation"), linewidth = 1) +
+    geom_point(aes(y = mean, colour = "Mean"), size = 2.5, alpha = 0.3) +
+    geom_hline(yintercept = 18) +
+    coord_flip() +
+    ylab("Age of sample (years)") +
+    xlab(NULL) +
+    scale_colour_manual(
+        name = "Statistics",
+        values = c("Mean" = "black", "Standard deviation" = "dodgerblue", "Range" = "darkorange")
+    ) +
+    scale_y_continuous(
+        limits = c(0, 95),
+        breaks = c(0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95),
+        minor_breaks = NULL,
+        expand = expansion(mult = c(0, 0.01))
+    ) +
+    theme_bw()
+age_plot
+ggsave(
+    fig_path("age_plot"),
+    age_plot,
+    width = 8,
+    height = 5,
+    dpi = 300
+)
+# }}}
+```
+
+### n
+
+```{r}
+# {{{
+n_df <- data.frame(
+    n = c(data$"n", data$"n_female", data$"n_male"),
+    Sex = c(rep("All", 30), rep("F", 30), rep("M", 30))
+)
+n_df[n_df == 0] <- 1
+
+x <- data |>
+    dplyr::mutate(prop_female = 100 * n_female / n) |>
+    pull(prop_female)
+median(x, na.rm = TRUE)
+quantile(x, probs = c(0.25, 0.75), na.rm = TRUE)
+# 32 [19, 42]
+
+my_scale <- scale_x_continuous(
+    trans = "log10",
+    breaks = c(1, 10, 100, 1000, 10000, 100000),
+    minor_breaks = NULL,
+    labels = c("0", "10", "100", "1000", "10000", "100000")
+)
+n_plot <- n_df |>
+    ggplot(aes(x = n, fill = Sex, colour = Sex)) +
+    geom_histogram(
+        alpha = 0.3,
+        bins = 25
+    ) +
+    expand_limits(x = 50) +
+    my_scale +
+    scale_y_continuous(
+        breaks = 1:7,
+        minor_breaks = NULL,
+        expand = expansion(mult = c(0, 0.1))
+    ) +
+    labs(x = "Size of clustered sample", y = "Number of studies") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    theme(text = element_text(size = 14)) +
+    facet_wrap(~ Sex, nrow = 1)
+n_plot
+
+ggsave(
+    fig_path("n_plot"),
+    n_plot,
+    width = 8,
+    height = 3.5,
+    dpi = 300
+)
+# }}}
+```
+
+### Race
+
+```{r}
+# {{{
+library(circlize)
+race_mat <- as.matrix(data$"race")
+rownames(race_mat) <- data$"clean_name"
+colnames(race_mat) <- c(
+    "American Indian\n+ Alaskan Native",
+    "Asian",
+    "Black\n+ African Ancestry",
+    "Hispanic",
+    "Native Hawaiian\n+ Pacific Islander",
+    "New Zealand\nMaori",
+    "Unknown\n+ Other",
+    "White\n+ European"
+)
+# account for NAs
+race_mat[race_mat == "NR"] <- NA
+# convert values to numeric
+race_mat <- apply(
+    race_mat,
+    2,
+    function(x) {
+        as.numeric(x)
+    }
+)
+# convert values to % distribution by study
+race_mat <- race_mat / rowSums(race_mat, na.rm = TRUE)
+race_mat <- race_mat * 100
+# order columns by prevalence (barring unknown/other)
+cols <- names(sort(-colSums(race_mat, na.rm = TRUE)))
+cols <- c(cols[-1], cols[1])
+col_fun <- colorRamp2(c(0, 100), c("red", "royalblue"))
+rownames(race_mat) <- data$"clean_name"
+race_mat <- race_mat[order(-apply(race_mat, 1, function(x) sum(!is.na(x)))), order(-apply(race_mat, 2, function(x) sum(!is.na(x))))]
+race_mat <- t(race_mat)
+race_hm <- Heatmap(
+    race_mat,
+    name = "Proportion\nof\nsample\n",
+    na_col = "white",
+    rect_gp = gpar(col = "black", lwd = 1),
+    col = col_fun,
+    cluster_rows = FALSE,
+    cluster_columns = FALSE,
+    row_names_side = "left",
+    show_column_names = TRUE
+)
+race_hm
+
+pdf("figures/2026_04_01_race_hm.pdf", width = 9, height = 5)
+draw(race_hm)
+dev.off()
+# }}}
+```
+
+### Time post-injury
+
+```{r}
+# {{{
+print(paste0(1:30, ". ", data$"clean_name", ": ", data$"time_post_injury"))
+#1. Anderson 2025: 10 w
+#    - mean point? at 10 weeks
+#2. Armañanzas 2024: less than 120 h, median 50.03 h, iqr 27.20 h to 70.47 h
+#    - median point at 50.03 h
+#    - criteria max 120 h
+#3. Bailie 2016: less than 2 years
+#    - criteria max 2 years
+#4. Blundell 2025: daily from mean 6.63 to mean 41.63, sd 8.12
+#    - collection band from 6.63 to 41.63 h
+#    - sd band from 6.63-8.12 to 41.63+8.12
+#5. Bui 2022: A pre-injury time point of unspecified time, once below 6 hours, from the 24-48 hour post-injury time point, once at asymptomatic, once at unrestricted rtp, once 7 days post-rtp, once 6 months post-rtp
+#6. Chan 2003: between 3 and 78 months post-injury, median 12 months
+#    - median point at 12 m
+#    - range band from 3 m to 78 m
+#7. Cicerone 1995: at least 3 months post-injury, range of 3 to 52 months post-injury, mean of 13.9 months and SD of 11.8 months 
+#    - criteria min 3 m
+#    - range band 3 m to 52 m
+#    - mean point at 13.9 m
+#    - sd band of 11.8 m
+#8. Fino 2022: 9.2 (7.9) years. Based on lifetime history of veterans so the range is wide.
+#    - mean point at 9.2 y
+#    - sd band at 7.9 y
+#9. Gumus 2022: Between 3 months and an unspecified number of years
+#10. Hanlon 1999: median of 177 days, range of 3-40 months
+#11. Hicks 2022: mean of 4 days, SD of 4 days
+#12. Ingram 2023: 61.6 (51.8) months
+#13. Kinney 2024: not reported
+#14. Lyons 2022: 28 days post-injury
+#15. Macgregor 2024: 24 months
+#16. Maestas 2014: 2-weeks post-injury.
+#17. Maietta 2022: 72 hrs AND 4-7 days AND 8-30 days
+#18. Pugh 2019: not reported
+#19. Rabinowitz 2013: less than 48 hours
+#20. Rakers 2021: 2 weeks and 3 months and 6 months post-injury
+#21. Ransom 2016: less than 4 weeks of injury, median of 16 days, range of 7 to 28 days
+#23. Simons 2024: less than 12 hours post-injury
+#24. Snell 2015: less than 3 months was the criteria, with actual mean of 40.8 days and SD of 23.4 days
+#25. Thaler 2013: Average of 49.5 (SD 25.4) months post-injury
+#26. Visscher 2019: median of 52 days post-injury, IQR of 140 days
+#27. Yeates 2019: 0-48 hours
+anderson_df <- data.frame(study = "Anderson 2025", mean_time = 10 * 7)
+armananzas_df <- data.frame(study = "Armañanzas 2024", median_time = 50.3 / 24, criteria_max = 120 / 24)
+bailie_df <- data.frame(study = "Bailie 2016", criteria_max = 2 * 365)
+blundell_df <- data.frame(study = "Blundell 2025", continuous_start = 6.63, continuous_end = 41.63, mean_time = 24.13, sd = 8.12)
+# Bui not included due to timeline being based on unspecified RTP time
+chan_df <- data.frame(study = "Chan 2003", median_time = 12*30, min_time = 3 * 30, max_time = 78 * 30)
+#cicerone_df <- data.frame(study = "Cicerone 1995", criteria_min = 3 * 30, min_time = 3 * 30, max_time = 52 * 30, mean_time = 13.9 * 30, sd = 11.8 * 30)
+cicerone_df <- data.frame(study = "Cicerone 1995", min_time = 3 * 30, max_time = 52 * 30, mean_time = 13.9 * 30, sd = 11.8 * 30)
+fino_df <- data.frame(study = "Fino 2022", mean_time = 9.2 * 365, sd = 7.9 * 365)
+garcia_df1 <- data.frame(study = "Garcia 2022 (1)", mean_time = 6.51/24)
+garcia_df2 <- data.frame(study = "Garcia 2022 (2)", mean_time = 6.51/24)
+garcia_df3 <- data.frame(study = "Garcia 2022 (3)", criteria_min = 1, criteria_max = 2)
+garcia_df4 <- data.frame(study = "Garcia 2022 (4)", criteria_min = 1, criteria_max = 2)
+gumus_df <- data.frame(study = "Gumus 2022", criteria_min = 3 * 30)
+hanlon_df <- data.frame(study = "Hanlon 1999", median_time = 177, min_time = 3*30, max_time = 40*30)
+hicks_df <- data.frame(study = "Hicks 2022", mean_time = 4, sd = 4)
+ingram_df <- data.frame(study = "Ingram 2023", mean_time = 61.6*30, sd = 51.8*30, min_time = 0.3*30, max_time = 360*30)
+lyons_df <- data.frame(study = "Lyons 2022", mean_time = 28)
+macgregor_df <- data.frame(study = "Macgregor 2024", mean_time = 24*30)
+maestas_df <- data.frame(study = "Maestas 2014", criteria_max = 2 * 7)
+maietta_df1 <- data.frame(study = "Maietta 2022 (1)", mean_time = 72 / 24)
+maietta_df2 <- data.frame(study = "Maietta 2022 (2)", min_time = 4, max_time = 7)
+maietta_df3 <- data.frame(study = "Maietta 2022 (3)", min_time = 8, max_time = 30)
+rabinowitz_df <- data.frame(study = "Rabinowitz 2013", mean_time = 7.2, sd = 10.8, min_time = 0.5, max_time = 210)
+rakers_df <- data.frame(study = "Rakers 2021", continuous_start = 2 * 7, continuous_end = 6 * 30)
+#ransom_df <- data.frame(study = "Ransom 2016", median_time = 16, min_time = 7, max_time = 28, criteria_max = 28)
+ransom_df <- data.frame(study = "Ransom 2016", median_time = 16, min_time = 7, max_time = 28)
+si2018a_df <- data.frame(study = "Si 2018a", mean_time = 1)
+si2018b_df <- data.frame(study = "Si 2018b", mean_time = 1)
+simon_df <- data.frame(study = "Simons 2024", criteria_max = 12 / 24)
+snell_df <- data.frame(study = "Snell 2015", criteria_max = 3 * 30, mean_time = 40.8, sd = 23.4)
+thaler_df <- data.frame(study = "Thaler 2013", mean_time = 49.5 * 30, sd = 25.4 * 30)
+visscher_df <- data.frame(study = "Visscher 2019", median_time = 52)
+yeates_df <- data.frame(study = "Yeates 2019", criteria_max = 48 / 24)
+timeline_data <- dplyr::bind_rows(
+    anderson_df,
+    armananzas_df,
+    bailie_df,
+    blundell_df,
+    chan_df,
+    cicerone_df,
+    fino_df,
+    garcia_df1,
+    garcia_df2,
+    garcia_df3,
+    garcia_df4,
+    gumus_df,
+    hanlon_df,
+    hicks_df,
+    ingram_df,
+    lyons_df,
+    macgregor_df,
+    maestas_df,
+    maietta_df1,
+    maietta_df2,
+    maietta_df3,
+    rabinowitz_df,
+    rakers_df,
+    ransom_df,
+    si2018a_df,
+    si2018b_df,
+    simon_df,
+    snell_df,
+    thaler_df,
+    visscher_df,
+    yeates_df
+)
+timeline_data$"sd_low" <- timeline_data$"mean_time" - timeline_data$"sd"
+timeline_data$"sd_high" <- timeline_data$"mean_time" + timeline_data$"sd"
+timeline_data$"sd_low"[timeline_data$"sd_low" <= 0] <- 0.25
+timeline_data$"min_val" <- timeline_data[, 2:ncol(timeline_data)] |>
+    apply(1, min, na.rm = TRUE)
+timeline_data <- arrange(timeline_data, -min_val)
+timeline_data$study <- factor(timeline_data$study, levels = unique(timeline_data$study))
+timeline_data$study_num <- as.numeric(timeline_data$study)
+recruitment_line_height <- 0.5
+timeline_plot <- timeline_data |>
+    ggplot(aes(y = study_num)) +
+    geom_errorbar(
+        aes(
+            xmin = min_time,
+            xmax = max_time,
+            color = "Range"
+        ),
+        width = 0,
+        alpha = 0.5,
+        linewidth = 8
+    ) +
+    geom_errorbar(
+        data = timeline_data |> filter(!is.na(sd)),
+        aes(
+            xmin = sd_low,
+            xmax = sd_high,
+            color = "SD (±1)"
+        ),
+        width = 0,
+        alpha = 0.5,
+        linewidth = 6
+    ) +
+    geom_errorbar(
+        aes(
+            xmin = continuous_start,
+            xmax = continuous_end,
+            color = "Multiple time points"
+        ),
+        width = 0,
+        alpha = 0.5,
+        linewidth = 4
+    ) +
+    geom_point(
+        data = timeline_data |> filter(!is.na(mean_time)),
+        aes(x = mean_time, shape = "Mean / single point"), 
+        color = "purple",
+        alpha = 1,
+        size = 4
+    ) +
+    geom_point(
+        data = timeline_data |> filter(!is.na(median_time)),
+        aes(x = median_time, shape = "Median"), 
+        color = "forestgreen",
+        alpha = 1,
+        size = 5
+    ) +
+    scale_shape_manual(
+        name = "",
+        values = c("Mean / single point" = 16, "Median" = 18)
+    ) +
+    scale_color_manual(
+        name = "",
+        values = c(
+            "Range" = "skyblue",
+            "SD (±1)" = "darkorange",
+            "Multiple time points" = "darkseagreen"
+        )
+    ) +
+    scale_linetype_manual(
+        name = "",
+        values = c("Recruitment min." = "solid", "Recruitment max." = "solid"),
+        breaks = c("Recruitment min.", "Recruitment max."),
+        guide = guide_legend(override.aes = list(linewidth = 0.8))
+    ) +
+    labs(
+        title = "Time since last injury of clustered sample",
+        x = "Time",
+        y = "Study"
+    ) +
+    scale_x_continuous(
+        trans = "log10",
+        limits = c(0.25, 40000),
+        breaks = c(0.25, 0.5, 1:7, 14, 30*(1:6), 365*(1:5), 3653 , 50*365),
+        labels = c("<= 6h" , "12h" , paste0(1:7 , "d") , "14d", paste0(1:6, "m"), paste0(1:5, "y"), "10y"   , "50y") ,
+        minor_breaks = NULL,
+        expand = c(0, 0)
+    ) +
+    scale_y_continuous(
+        breaks = 1:length(timeline_data$"study"),
+        labels = timeline_data$"study",
+        minor_breaks = NULL,
+        expand = c(0.02, 0)
+    ) +
+    geom_linerange(
+        data = timeline_data |> filter(!is.na(criteria_min)),
+        aes(
+            x = criteria_min,
+            ymin = study_num - recruitment_line_height + 0.05,
+            ymax = study_num + recruitment_line_height - 0.05,
+            linetype = "Recruitment min."
+        ),
+        color = "blue",
+        linewidth = 2
+    ) +
+    geom_linerange(
+        data = timeline_data |> filter(!is.na(criteria_max)),
+        aes(
+            x = criteria_max,
+            ymin = study_num - recruitment_line_height + 0.05,
+            ymax = study_num + recruitment_line_height - 0.05,
+            linetype = "Recruitment max."
+        ),
+        color = "red",
+        linewidth = 2
+    ) +
+    theme_bw() +
+    theme(
+        legend.position = "bottom",
+        legend.box = "vertical",
+        text = element_text(size = 18),
+        axis.text.x = element_text(angle = 90, hjust = 1)
+    )
+timeline_plot
+ggsave(
+    fig_path("timeline_plot"),
+    timeline_plot,
+    width = 20,
+    height = 12,
+    dpi = 300
+)
+# }}}
+```
+
+### Clustering method
+
+```{r}
+# {{{
+data <- fromJSON("../extraction.json")
+# Printing only the text inside the square brackets:
+methods <- gsub("\\].+", "", data$"clustering_method", perl = TRUE)
+methods <- gsub("\\]", "", methods, perl = TRUE)
+methods <- gsub("\\[", "", methods, perl = TRUE)
+method_df <- data.frame(method = methods)
+method_df$"method" <- gsub(" and ", " and \n", method_df$"method")
+method_df$"method" <- str_to_sentence(method_df$"method")
+method_plot <- method_df |>
+    ggplot(
+        aes(
+            x = reorder(
+                method,
+                method,
+                FUN = function(x) {
+                    -1 * length(x)
+                }
+            )
+        )
+    ) +
+    geom_bar() +
+    scale_y_continuous(
+        breaks = 0:13,
+        minor_breaks = NULL
+    ) +
+    #labs(x = "Clustering method", y = "Number of studies") +
+    labs(x = NULL, y = "Number of studies") +
+    theme_bw() +
+    theme(
+        text = element_text(size = 14),
+        axis.text.x = element_text(angle = 60, hjust = 1)
+    )
+ggsave(
+    fig_path("method_plot"),
+    method_plot,
+    width = 7,
+    height = 5,
+    dpi = 300
+)
+# }}}
+```
+
+### Validation method
+
+```{r}
+# {{{
+val_mat <- matrix(0, nrow = 30, ncol = 5)
+val_methods <- data$"validation_method" |>
+    lapply(
+        function(y) {
+            y |> lapply(
+                function(x) {
+                    val <- as.numeric(substr(x, 2, 2))
+                    if (val > 0) val else NULL
+                }
+            ) |>
+                unlist() |>
+                unique()
+        }
+    )
+for (i in seq_along(val_methods)) {
+    methods <- val_methods[[i]]
+    val_mat[i, methods] <- 1
+}
+rownames(val_mat) <- data$"clean_name"
+colnames(val_mat) <- c(
+    "Internal validation",
+    "Separation on\nexternal features",
+    "Stability to sample\nperturbation",
+    "Stability to\nclustering methods",
+    "Generalizes to\nexternal sample"
+)
+val_mat <- t(val_mat)
+val_hm <- Heatmap(
+    val_mat,
+    row_names_side = "left",
+    rect_gp = gpar(col = "black", lwd = 2),
+    col = c("0" = "white", "1" = "orange"),
+    show_column_dend = FALSE,
+    cluster_rows = FALSE,
+    heatmap_legend_param = list(
+        title = "Method used",       # optional, overridden by custom Legend
+        at = c("1"),
+        labels = c("Yes")
+    )
+)
+
+val_hm
+
+pdf("figures/2026_04_01_val_method_hm.pdf", width = 9, height = 3.5)
+draw(val_hm)
+dev.off()
+# }}}
+```
+
+### Summary
+
+```{r}
+# {{{
+data <- fromJSON("../extraction.json")
+options(width = 300)
+cft_dfs <- lapply(
+    seq_along(data$"study_id"),
+    function(x) {
+        df <- data$"clustering_features"[[x]]
+        df$"study" <- data$"clean_name"[[x]]
+        return(df)
+    }
+)
+oft_dfs <- lapply(
+    seq_along(data$"study_id"),
+    function(x) {
+        df <- data$"other_features"[[x]]
+        df$"study" <- data$"clean_name"[[x]]
+        return(df)
+    }
+)
+cft_df <- do.call("rbind", cft_dfs)
+oft_df <- do.call("rbind", oft_dfs[!data$"author" %in% c("lyons", "garcia")])
+ft_df <- rbind(cft_df, oft_df)
+multistudies <- ft_df |>
+    dplyr::group_by(study) |>
+    dplyr::summarize(n = max(solution)) |>
+    dplyr::filter(n > 1) |>
+    dplyr::pull(study)
+# labeling for multiple cluster solutions within a study
+# also treating the two Si et al. studies as coming from the same study
+ft_df <- dplyr::mutate(
+    ft_df,
+    study_og = dplyr::case_when(
+        study == "Si 2018a" ~ "Si 2018",
+        study == "Si 2018b" ~ "Si 2018",
+        TRUE ~ study
+    ),
+    solution = dplyr::case_when(
+        study == "Si 2018b" ~ 2,
+        TRUE ~ solution
+    ),
+    study = dplyr::case_when(
+        study %in% multistudies ~ paste0(study, " (", solution, ")"),
+        study == "Si 2018a" ~ "Si 2018 (1)",
+        study == "Si 2018b" ~ "Si 2018 (2)",
+        TRUE ~ study
+    )
+)
+
+ft_df_sig <- ft_df |>
+    dplyr::filter( !result %in% c("n.r.", "n.s."), goodness == TRUE) |>
+    dplyr::select(-goodness, -report)
+
+non_goodness_df <- ft_df |>
+    dplyr::filter(
+        !result %in% c("n.r.", "n.s."),
+        tag %in% c("Female", "Non-White", "Age")
+    ) |>
+    dplyr::select(-goodness, -report)
+non_goodness_df
+
+ft_df_sig <- rbind(ft_df_sig, non_goodness_df)
+
+twin_df <- ft_df |>
+    dplyr::select(study_og, tag) |>
+    dplyr::group_by(study_og, tag) |>
+    dplyr::summarize(n = n()) |>
+    dplyr::mutate(n = 1) |>
+    as.data.frame() |>
+    dplyr::group_by(tag) |>
+    dplyr::summarize(n = dplyr::n()) |>
+    arrange(n)
+print(arrange(dplyr::filter(twin_df, n == 1), tag), n = Inf)
+print(arrange(dplyr::filter(twin_df, n > 1), tag), n = Inf)
+
+# This function takes a string like "1 > 7 > 5 > 3 = 6 > 2 > 4 > 8" 
+# and calculates for each number a score based on the number of entities
+# that number is greater than and less than.
+parse_streak <- function(string) {
+    # split on >
+    groups <- strsplit(string, " > ")[[1]]
+    # split further on =
+    group_list <- lapply(groups, function(x) strsplit(x, " = ")[[1]])
+    numbers <- sort(unique(unlist(group_list)))
+    df <- data.frame(
+        cluster = numbers,
+        beats = integer(length(numbers)),
+        loses_to = integer(length(numbers)),
+        stringsAsFactors = FALSE
+    )
+    # iterate through and count win/loss tallies
+    for (i in 1:length(group_list)) {
+        for (j in 1:length(group_list)) {
+            if (i != j) {
+                for (a in group_list[[i]]) {
+                    if (i < j) {
+                        df$"beats"[df$"cluster" == a] <- df$"beats"[df$"cluster" == a] + length(group_list[[j]])
+                    } else {
+                        df$"loses_to"[df$"cluster" == a] <- df$"loses_to"[df$"cluster" == a] + length(group_list[[j]])
+                    }
+                }
+            }
+        }
+    }
+    df <- df |>
+        dplyr::mutate(score = beats - loses_to) |>
+        arrange(-score) |>
+        dplyr::select(cluster, score)
+    return(df)
+}
+
+parse_pairs <- function(string) {
+    pairs <- strsplit(string, ";\\s*")[[1]]
+    df <- data.frame()
+    for (pair in pairs) {
+        split <- strsplit(pair, " ")[[1]]
+        if (split[[2]] == ">") {
+            df <- rbind(
+                df,
+                data.frame(
+                    cluster = c(split[[1]], split[[3]]),
+                    score = c(1, -1)
+                )
+            )
+        }
+    }
+    scored_df <- df |>
+        dplyr::group_by(cluster) |>
+        dplyr::summarize(score = sum(score)) |>
+        data.frame()
+    scored_df
+}
+
+# Input ranking string
+test_streak_ranking <- "1 > 7 > 5 = 3 = 6 = 2 = 4 = 8"
+test_pair_ranking <- "1 > 4; 2 > 4; 3 > 4; 2 > 1; 4 = 5"
+
+parse_streak(test_streak_ranking)
+
+overall_rank_within_set <- function(df) {
+    # just pull all the results
+    study_results <- df$"result"
+    # parse all the results
+    all_scores <- do.call(
+        "rbind",
+        lapply(
+            study_results,
+            function(x) {
+                if (grepl(";", x)) {
+                    parse_pairs(x)
+                } else {
+                    parse_streak(x)
+                }
+            }
+        )
+    )
+    # assign overall ranks
+    all_scores <- all_scores |>
+        dplyr::group_by(cluster) |>
+        dplyr::summarize(score = sum(score))
+    ranks <- dense_rank(-all_scores$"score")
+    all_scores$"rank" <- ranks
+    all_scores <- all_scores |>
+        dplyr::arrange(rank)
+    studies <- unique(df$"study")
+    if (length(studies) == 1) {
+        all_scores$"study" <- unique(df$"study")
+    } else {
+        stop("Data frame must only have 1 study")
+    }
+    all_scores
+}
+
+unique(ft_df_sig$"study")
+
+overall_mappings <- lapply(
+    unique(ft_df_sig$"study"),
+    function(x) {
+        study_df <- dplyr::filter(ft_df_sig, study == x)
+        study_results <- study_df$"result"
+        scaled_scores <- lapply(
+                1:nrow(study_df),
+                function(result_id) {
+                    x <- study_results[[result_id]]
+                    if (grepl(";", x)) {
+                        parsed <- dplyr::mutate(
+                            parse_pairs(x),
+                            tag = study_df$"tag"[[result_id]],
+                            score = score / max(abs(score))
+                        )
+                    } else {
+                        parsed <- dplyr::mutate(parse_streak(x), tag = study_df$"tag"[[result_id]], 
+                            score = score / max(abs(score))
+                        )
+                    }
+                    if (all(is.na(parsed$"score"))) {
+                        parsed$"score" <- 0
+                    }
+                    parsed
+                }
+            )
+        all_scores <- do.call("rbind", scaled_scores)
+        all_scores <- all_scores |>
+            dplyr::group_by(cluster, tag) |>
+            dplyr::summarize(score = sum(score)) |>
+            data.frame() |> 
+            group_by(tag) |>
+            mutate(score = score / max(abs(score))) |>
+            ungroup() |>
+            data.frame() |>
+            arrange(tag)
+        all_scores_by_tag <- all_scores # save this
+        all_scores_by_tag$"study" <- x
+        all_scores <- all_scores |>
+            dplyr::group_by(cluster) |>
+            dplyr::summarize(score = sum(score))
+        all_scores$"rank" <- dense_rank(-all_scores$"score")
+        all_scores <- all_scores |>
+            dplyr::arrange(rank)
+        ranks <- all_scores$"rank"
+        all_scores$"label" <- LETTERS[ranks]
+        all_scores$"border" <- tibble(x = ranks) |>
+            dplyr::group_by(x) |>
+            mutate(n = row_number()) |>
+            pull(n)
+        all_scores$"study" <- x
+        list("overall" = all_scores, "per_tag" = all_scores_by_tag)
+    }
+)
+
+tag_only_ranks <- lapply(overall_mappings, function(x) x[[2]])
+tag_only_ranks <- do.call("rbind", tag_only_ranks)
+tag_only_ranks_tags <- unique(tag_only_ranks$"tag")
+tag_only_ranks <- lapply(
+    tag_only_ranks_tags,
+    function(x) {
+        my_df <- dplyr::filter(tag_only_ranks, tag == x)
+        studies <- unique(my_df$"study")
+        dfs <- lapply(
+            studies,
+            function(y) {
+                tag_scores <- tibble(dplyr::filter(my_df, study == y))
+                tag_scores$"rank" <- dense_rank(-tag_scores$"score")
+                tag_scores <- arrange(tag_scores, rank)
+                return(tag_scores)
+            }
+        )
+        names(dfs) <- studies
+        dfs
+    }
+)
+names(tag_only_ranks) <- tag_only_ranks_tags
+
+overall_mappings <- lapply(overall_mappings, function(x) x[[1]])
+
+names(overall_mappings) <- unlist(
+    lapply(overall_mappings, function(x) unique(x$"study"))
+)
+
+my_rect <- function(l, r, y, fill, border, line = 1) {
+    rect(
+      xleft   = l,
+      xright  = r,
+      ybottom = y - 0.3,
+      ytop    = y + 0.3,  # height = 2
+      col = fill,
+      border = "#000000",
+      lwd = line
+    )
+    if (border != "#000000") {
+        points(
+            x   = (l + r) / 2,
+            y   = y,
+            pch = 21,
+            cex = 0.7,
+            bg  = border,
+            col = border
+        )
+    }
+}
+
+reset_canvas <- function(fts, studies, pad_bottom) {
+    n_fts <- length(fts)
+    n_studies <- length(studies)
+    par(mar = c(pad_bottom, 8, 2, 2))  # bottom, left, top, right
+    plot(
+        0,
+        0,
+        type = "n",
+        xlim = c(0, n_fts),
+        ylim = c(0, n_studies + 1),
+        xlab = "",
+        ylab = "",
+        yaxt = "n",
+        xaxt = "n",
+        xaxs = "i",
+        yaxs = "i"
+    )
+    # grid lines
+    x_grid <- c(1:100)
+    y_grid <- seq(0.5, 100, by = 1)
+    abline(v = x_grid, col = "gray80", lty = "solid", lwd = 1)
+    # a vertical line to separate female / age
+    abline(h = y_grid, col = "gray80", lty = "solid", lwd = 1)
+    # x-axis
+    axis(1, at = seq(0.5, n_fts, by = 1), labels = fts, las = 2)
+    # y-axis
+    axis(2, at = seq(1, n_studies, by = 1), labels = studies, las = 2)
+    abline(v = 14, col = "black", lty = "solid", lwd = 2)
+}
+populate_column <- function(ranks, offset, study_names) {
+    for (study_id in 1:length(study_names)) {
+        study <- study_names[study_id]
+        generate_rects(
+            ranks[[study]],
+            overall_mappings[[study]],
+            y = study_id,
+            x_offset = offset
+        )
+    }
+}
+
+draw_tie_bracket <- function(left,
+                             right,
+                             y,
+                             gap,
+                             x_offset,
+                             y_offset = 0.47,
+                             tick_height = 0.06) {
+    segments(
+        x0 = left  + gap / 2 + x_offset + 0.05,
+        x1 = right - gap / 2 + x_offset - 0.05,
+        y0 = y - 0.45,
+        y1 = y - 0.45,
+        lwd = 2
+    )
+}
+
+generate_rects <- function(ft_ranks,
+                           overall_map,
+                           block_width = 0.95,
+                           y = 1,
+                           x_offset = 0,
+                           gap = 0.025) {
+    border_cols <- c("#000000", RColorBrewer::brewer.pal(7, name = "Accent"))
+    if (!is.null(ft_ranks)) {
+        n_colours <- length(unique(overall_map$label))
+        palette <- colorRampPalette(c("white", "black"))(n_colours)
+        overall_map$fill   <- palette[overall_map$rank]
+        overall_map$border <- border_cols[overall_map$border]
+        overall_fill <- dplyr::select(overall_map, rank, cluster, fill, border) |>
+            dplyr::rename(overall_rank = rank)
+        mapped_ranks <- dplyr::inner_join(ft_ranks, overall_fill, by = "cluster") |>
+            dplyr::arrange(rank, overall_rank)
+        n_rects <- length(mapped_ranks$cluster)
+        if (n_rects > 0) {
+            base_boundaries <- seq(0, block_width, length.out = n_rects + 1)
+            x_offset <- x_offset + (1 - block_width) / 2
+            lapply(seq_len(n_rects), function(i) {
+                left  <- base_boundaries[i]   + gap / 2
+                right <- base_boundaries[i+1] - gap / 2
+                my_rect(
+                    l = left  + x_offset,
+                    r = right + x_offset,
+                    y = y,
+                    fill   = mapped_ranks$fill[i],
+                    border = mapped_ranks$border[i]
+                )
+            })
+            # Tie detection and bracket drawing
+            ranks_vec <- mapped_ranks$rank
+            tie_groups <- rle(ranks_vec)  # run-length encoding finds consecutive equal ranks
+            idx <- 1
+            for (g in seq_along(tie_groups$lengths)) {
+                len <- tie_groups$lengths[g]
+                if (len > 1) {  # only draw bracket for actual ties
+                    i_start <- idx
+                    i_end   <- idx + len - 1
+                    grp_left  <- base_boundaries[i_start] + gap / 2
+                    grp_right <- base_boundaries[i_end + 1] - gap / 2
+                    draw_tie_bracket(
+                        left     = grp_left,
+                        right    = grp_right,
+                        y        = y,
+                        gap      = 0,      # already baked in above
+                        x_offset = x_offset
+                    )
+                }
+                idx <- idx + len
+            }
+            return(overall_map)
+        }
+    }
+}
+all_ranks_common <- tag_only_ranks[lapply(tag_only_ranks, length) > 5]
+studies <- lapply(
+    all_ranks_common,
+    function(x) {
+        names(x)
+    }
+) |>
+    unlist() |>
+    as.vector() |>
+    unique()
+cluster_compare_plot <- function(rank_data, studies, pad_bottom) {
+    reset_canvas(
+        fts = names(rank_data),
+        studies = studies,
+        pad_bottom
+    )
+    for (x in seq_along(rank_data)) {
+        populate_column(rank_data[[x]], x - 1, studies)
+    }
+}
+# We can put a number to how well sorted each feature is by spearman correlations
+calc_spearman <- function(study, feature) {
+    global <- overall_mappings[[study]]
+    local <- all_ranks_common[[feature]][[study]]
+    if (is.null(global) | is.null(local)) {
+        return(NA)
+    }
+    global <- global |>
+        dplyr::rename("global_rank" = "rank") |>
+        dplyr::select(-study, -score)
+    local <- local |> 
+        dplyr::rename("local_rank" = "rank") |>
+        dplyr::select(-study, -score)
+    joined <- dplyr::full_join(global, local, by = "cluster")
+    correlation <- cor(joined$"global_rank", joined$"local_rank")
+    return(correlation)
+}
+res <- outer(
+    studies,
+    names(all_ranks_common),
+    Vectorize(calc_spearman)
+)
+# Collapse correlations across studies first
+res_df <- data.frame(res)
+res_df$"study" <- studies
+study_table <- ft_df |>
+    dplyr::select(study, study_og) |>
+    dplyr::group_by(study, study_og) |>
+    dplyr::summarize(n = dplyr::n()) |>
+    dplyr::select(-n)
+res_df <- dplyr::inner_join(
+    res_df,
+    study_table,
+    by = "study"
+)
+colnames(res_df) <- c(names(all_ranks_common), "study", "study_og")
+res_corrs <- res_df |>
+    group_by(study_og) |>
+    summarise(
+        across(where(is.numeric), ~ mean(.x, na.rm = TRUE)),
+        .groups = "drop"
+    ) |>
+    dplyr::select(-study_og) |>
+    colMeans(na.rm = TRUE)
+
+dimnames(res) <- list(studies, names(all_ranks_common))
+sorted_tags <- names(sort(res_corrs, decreasing = TRUE))
+sorted_ranks <- all_ranks_common[sorted_tags]
+nums <- colMeans(res, na.rm = TRUE) |>
+    sort(decreasing = TRUE) |>
+    round(2)
+sorted_names <- paste0(names(all_ranks_common[sorted_tags]), "\n(", nums, ")")
+names(sorted_ranks) <- sorted_names
+
+# Chan, Bui, Si 2018 (1 and 2) and Simons 2024
+res_df |>
+    data.frame() |>
+    dplyr::filter(Female > 0) |>
+    dplyr::select(study, Female)
+
+# Blundell, Kinney, MacGregor
+res_df |>
+    data.frame() |>
+    dplyr::filter(Female < 0) |>
+    dplyr::select(study)
+```
+
+```{r}
+png(fig_path("cluster_summary_plot"), width = 2000, height = 1400, res = 150)
+cluster_compare_plot(sorted_ranks, sort(studies), pad_bottom = 9)
+dev.off()
+# }}}
+```
+
+### journals
+
+```{r}
+years <- data.frame(
+    journal = data$"journal",
+    year = data$"year"
+)
+
+years
+
+ifs <- data.frame(
+    journal = unique(data$"journal"),
+    impact = c(2, 9.7, 3.3, 7.7, 3.4, 1.8, 9.0, 2.5, 3.8, 2.1, 16.3, 1.9,
+        3.0, 2.6, 3.7, 2.6, 2.7, 4.5)
+)
+
+journals <- dplyr::full_join(
+    years, ifs
+)
+
+jlevels_year <- journals |>
+    group_by(journal) |>
+    #dplyr::summarize(sort_val = dplyr::n()) |>
+    dplyr::summarize(sort_val = max(year)) |>
+    arrange(sort_val) |>
+    pull(journal)
+
+jlevels_freq <- journals |>
+    group_by(journal) |>
+    dplyr::summarize(sort_val = dplyr::n()) |>
+    arrange(sort_val) |>
+    pull(journal)
+
+jlevels_if <- journals |>
+    group_by(journal) |>
+    #dplyr::summarize(sort_val = dplyr::n()) |>
+    dplyr::summarize(sort_val = max(impact)) |>
+    arrange(sort_val) |>
+    pull(journal)
+
+
+journals$"journal_year" <- factor(journals$"journal", levels = jlevels_year)
+journals$"journal_freq" <- factor(journals$"journal", levels = jlevels_freq)
+journals$"journal_if" <- factor(journals$"journal", levels = jlevels_if)
+
+journals
+
+p1 <- journals |>
+    ggplot(
+        aes(x = year, y = journal_freq, colour = log(impact))
+    ) +
+    geom_hline(yintercept = 13.5, color = "red") +
+    geom_point(aes(size = log(impact))) +
+    xlim(c(2012, 2025)) +
+    theme_bw() +
+    theme(text = element_text(size = 14))
+p2 <- journals |>
+    ggplot(
+        aes(x = year, y = journal_year, colour = log(impact))
+    ) +
+    geom_hline(yintercept = 13.5, color = "red") +
+    geom_point(aes(size = log(impact))) +
+    xlim(c(2012, 2025)) +
+    theme_bw() +
+    theme(text = element_text(size = 14))
+p3 <- journals |>
+    ggplot(
+        aes(x = year, y = journal_if, colour = log(impact))
+    ) +
+    geom_point(aes(size = log(impact))) +
+    geom_hline(yintercept = 13.5, color = "red") +
+    xlim(c(2012, 2025)) +
+    theme_bw() +
+    theme(text = element_text(size = 14))
+full_plot <- patchwork::wrap_plots(c(p1, p2, p3), ncol = 1)
+ggsave("figures/journal_plot.png", full_plot, width = 12, height = 12)
+```
+
+Journals that come up include:
+
+- from frequency
+    - the journal of head trauma rehabilitation
+    - brain injury
+    - archives of clinical neuropsychology
+    - neuropsychology
+    - journal of neurotrauma
+- from recency
+    - plos digital health
+    - disability and rehabilitation
+    - the journal of head trauma rehabilitation
+    - the american journal of sports medicine
+    - journal of women's health
+- from if
+    - british journal of sports medicine
+    - jama network open
+    - neurology
+    - plos digital health
+    - the american journal of sports medicine
+
+The study is not seem all that suitable for a sports journal or neurology journal. 
+And does not quite seem at the caliber of jama network open.
+So that leaves:
+
+1. plos digital health
+2. journal of neurotrauma
+3. the journal of head trauma rehabilitation
+4. neuropsychology
+5. archives of clinical neuropsychology
+6. disability and rehabilitation
+7. journal of women's health
+8. brain injury
+
+Starting with PLOS digital health also has the perk of there being no restrictions on length / figures / tables.
+
+lab meeting?
+
+mention sex and its covariates probably are covaried with sex,
+
+
