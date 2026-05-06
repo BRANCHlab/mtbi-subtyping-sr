@@ -292,7 +292,7 @@ hms <- hms[heatmap_order]
 ht <- Reduce(`+`, hms)
 draw(ht, ht_gap = unit(0, "mm"))
 
-pdf("figures/2026_04_14_concussion_definition.pdf", width = 9, height = 8)
+png("figures/2026_04_14_concussion_definition.png", width = 900, height = 700)
 draw(
   ht,
   ht_gap = unit(0, "mm")
