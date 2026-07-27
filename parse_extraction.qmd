@@ -12,7 +12,7 @@ library(ComplexHeatmap)
 library(circlize)
 library(viridis)
 
-data <- fromJSON("../extraction.json")
+data <- fromJSON("supplementary_file_1_extraction.json")
 
 fig_path <- function(path) {
     return(paste0("figures/", format(Sys.Date(), "%Y_%m_%d"), "_", path, ".png"))
@@ -88,7 +88,6 @@ ggsave(
 
 ```{r}
 # {{{
-
 library(ComplexHeatmap)
 library(circlize)
 concussion_df <- data$"concussion_definition"
@@ -100,28 +99,54 @@ clustered_df <- concussion_df |>
             at_least_one_symptom  == "Yes" ~ 1,
             TRUE ~ NA
         ),
-        altered_mental_state = dplyr::case_when(
+        ams_l30 = dplyr::case_when(
             altered_mental_state  == "NR" ~ 0,
             altered_mental_state  == "<= 30 minutes" ~ 1,
-            altered_mental_state  == "<= 24 hours" ~ 2,
-            altered_mental_state  == "Any" ~ 3,
+            altered_mental_state  == "<= 24 hours" ~ 0,
+            altered_mental_state  == "Any" ~ 0,
             TRUE ~ NA
         ),
-        focal_neurological_signs = dplyr::case_when(
+        ams_l24 = dplyr::case_when(
+            altered_mental_state  == "NR" ~ 0,
+            altered_mental_state  == "<= 24 hours" ~ 1,
+            altered_mental_state  == "Any" ~ 0,
+            altered_mental_state  == "<= 30 minutes" ~ 0,
+            TRUE ~ NA
+        ),
+        ams_any = dplyr::case_when(
+            altered_mental_state  == "NR" ~ 0,
+            altered_mental_state  == "<= 24 hours" ~ 0,
+            altered_mental_state  == "<= 30 minutes" ~ 0,
+            altered_mental_state  == "Any" ~ 1,
+            TRUE ~ NA
+        ),
+        focal_neuro_transient = dplyr::case_when(
             focal_neurological_signs == "NR" ~ 0,
             focal_neurological_signs == "Transient" ~ 1,
-            focal_neurological_signs == "Any" ~ 2,
+            focal_neurological_signs == "Any" ~ 0,
             TRUE ~ NA
         ),
-        gcs = dplyr::case_when(
+        focal_neuro_any = dplyr::case_when(
+            focal_neurological_signs == "NR" ~ 0,
+            focal_neurological_signs == "Transient" ~ 0,
+            focal_neurological_signs == "Any" ~ 1,
+            TRUE ~ NA
+        ),
+        gcs_14 = dplyr::case_when(
             gcs == "NR" ~ 0,
+            gcs == ">= 13" ~ 0,
             gcs == ">= 14" ~ 1,
-            gcs == ">= 13" ~ 2,
+            TRUE ~ NA
+        ),
+        gcs_13 = dplyr::case_when(
+            gcs == "NR" ~ 0,
+            gcs == ">= 14" ~ 0,
+            gcs == ">= 13" ~ 1,
             TRUE ~ NA
         ),
         hospitalization_time_less_24 = dplyr::case_when(
             hospitalization_time_less_24 == "NR" ~ 0,
-            hospitalization_time_less_24 == "<= 24 hours" ~ 1,
+            hospitalization_time_less_24 == "Yes" ~ 1,
             TRUE ~ NA
         ),
         impaired_balance_less_24 = dplyr::case_when(
@@ -134,10 +159,16 @@ clustered_df <- concussion_df |>
             impaired_learning_and_memory_less_48 == "Yes" ~ 1,
             TRUE ~ NA
         ),
-        loc = dplyr::case_when(
+        loc_30 = dplyr::case_when(
             loc == "NR" ~ 0,
+            loc == "Any" ~ 0,
             loc == "<= 30 minutes" ~ 1,
-            loc == "Any" ~ 2,
+            TRUE ~ NA
+        ),
+        loc_any = dplyr::case_when(
+            loc == "NR" ~ 0,
+            loc == "<= 30 minutes" ~ 0,
+            loc == "Any" ~ 1,
             TRUE ~ NA
         ),
         normal_imaging = dplyr::case_when(
@@ -145,15 +176,21 @@ clustered_df <- concussion_df |>
             normal_imaging == "Yes" ~ 1,
             TRUE ~ NA
         ),
-        post_traumatic_amnesia = dplyr::case_when(
+        pta_24 = dplyr::case_when(
             post_traumatic_amnesia == "NR" ~ 0,
             post_traumatic_amnesia == "<= 24 hours" ~ 1,
-            post_traumatic_amnesia == "Any" ~ 2,
+            post_traumatic_amnesia == "Any" ~ 0,
+            TRUE ~ NA
+        ),
+        pta_any = dplyr::case_when(
+            post_traumatic_amnesia == "NR" ~ 0,
+            post_traumatic_amnesia == "<= 24 hours" ~ 0,
+            post_traumatic_amnesia == "Any" ~ 1,
             TRUE ~ NA
         ),
         reduced_reaction_less_48 = dplyr::case_when(
             reduced_reaction_less_48 == "NR" ~ 0,
-            reduced_reaction_less_48 == "Yes" ~ 2,
+            reduced_reaction_less_48 == "Yes" ~ 1,
             TRUE ~ NA
         ),
         restricted_activity_more_5 = dplyr::case_when(
@@ -172,132 +209,123 @@ clustered_df <- concussion_df |>
             TRUE ~ NA
         )
     )
-ht <- draw(Heatmap(as.matrix(clustered_df)))
-roword <- rownames(clustered_df)[row_order(ht)]
-colord <- colnames(clustered_df)[column_order(ht)]
-neat_names <- c(
-    "At least one symptom",
-    "Altered mental state",
-    "Focal neurological signs",
-    "Glasgow Coma Scale",
-    "Hospitalization less than 24h",
-    "Impaired balance less than 24h",
-    "Impaired learning and memory",
-    "Loss of consciousness",
-    "Normal structural imaging",
-    "Post-traumatic amnesia",
-    "Reduced reaction time",
-    "Restricted activity more than 5d",
-    "Other algorithm",
-    "Diagnosis"
-)
-colour_schemes <- list(
-    "At least one symptom"              =  c("NR"  =  "white" , "Yes"            =  "darkorchid2") ,
-    "Altered mental state"              =  c("NR"  =  "white" , "Any"            =  "lightblue4"   , "<= 30 minutes"  =  "palegreen"   , "<= 24 hours"  =  "royalblue") ,
-    "Focal neurological signs"          =  c("NR"  =  "white" , "Any"            =  "deeppink"     , "Transient"      =  "cyan4")      ,
-    "Glasgow Coma Scale"                =  c("NR"  =  "white" , ">= 14"          =  "palegreen4"   , ">= 13"          =  "lightblue4") ,
-    "Hospitalization less than 24h"     =  c("NR"  =  "white" , "Yes"            =  "darkorchid2") ,
-    "Impaired balance less than 24h"    =  c("NR"  =  "white" , "Yes"            =  "darkorchid2") ,
-    "Impaired learning and memory"      =  c("NR"  =  "white" , "Yes"            =  "darkorchid2") ,
-    "Loss of consciousness"             =  c("NR"  =  "white" , "<= 30 minutes"  =  "lightblue4"   , "Any"            =  "deeppink")   ,
-    "Normal structural imaging"         =  c("NR"  =  "white" , "Yes"            =  "darkorchid2") ,
-    "Post-traumatic amnesia"            =  c("NR"  =  "white" , "<= 24 hours"    =  "lightblue4"   , "Any"            =  "deeppink")   ,
-    "Reduced reaction time"             =  c("NR"  =  "white" , "Yes"            =  "darkorchid2") ,
-    "Restricted activity more than 5d"  =  c("NR"  =  "white" , "Yes"            =  "darkorchid2") ,
-    "Other algorithm"                   =  c("NR"  =  "white" , "Yes"            =  "darkorchid2") ,
-    "Diagnosis"                         =  c("NR"  =  "white" , "Yes"            =  "darkorchid2")
-)
-heatmap_row_order <- c(
-    "Hanlon 1999",
-    "Maestas 2014",
-    "Snell 2015",
-    "Thaler 2013",
-    "Blundell 2025",
-    "Cicerone 1995",
-    "Bailie 2016",
-    "Anderson 2025",
-    "Bui 2022",
-    "Kinney 2024",
-    "Ingram 2023",
-    "Pugh 2019",
-    "Rakers 2021",
-    "Fino 2022",
-    "Armañanzas 2024",
-    "Macgregor 2024",
-    "Lyons 2022",
-    "Yeates 2019",
-    "Chan 2003",
-    "Gumus 2022",
-    "Garcia 2022",
-    "Si 2018a",
-    "Si 2018b",
-    "Hicks 2022",
-    "Maietta 2022",
-    "Rabinowitz 2013",
-    "Ransom 2016",
-    "Rosenblatt 2021",
-    "Simons 2024",
-    "Visscher 2019"
-)
-concussion_df[concussion_df == "NR"] <- NA
-hms <- lapply(
-    seq_len(ncol(concussion_df)),
-    function(i) {
-        mat <- matrix(concussion_df[, i])
-        rownames(mat) <- rownames(concussion_df)
-        colnames(mat) <- neat_names[i]
-        mat <- mat[heatmap_row_order, , drop = FALSE]
-        legend <- FALSE
-        # Column 12's legend is used as a placeholder for all binary 
-        # columns.
-        if (i %in% c(2, 4, 10, 8, 3, 14)) {
-            legend <- TRUE
-        }
-        if (i == 14) {
-            mat_name <- "Other"
-        } else {
-            mat_name <- neat_names[i]
-        }
-        Heatmap(
-            mat,
-            name = mat_name,
-            row_names_side = "left",
-            na_col = "white",
-            col = colour_schemes[[i]],
-            rect_gp = gpar(col = "black", lwd = 1),
-            show_heatmap_legend = legend,
-            column_names_rot = 45
+clustered_df <- clustered_df |>
+    dplyr::select(
+        -c(
+            altered_mental_state,
+            focal_neurological_signs,
+            loc,
+            post_traumatic_amnesia,
+            gcs
         )
-    }
-)
-names(hms) <- colnames(concussion_df)
-heatmap_order <- c(
-    "altered_mental_state",
-    "gcs",
-    "post_traumatic_amnesia",
-    "loc",
-    "focal_neurological_signs",
+    )
+c_hm <- as.matrix(clustered_df)
+col_ord <- c(
+    "diagnosis",
+    "loc_30",
+    "loc_any",
+    "pta_24",
+    "pta_any",
+    "gcs_13",
+    "gcs_14",
+    "ams_any",
+    "ams_l30",
+    "ams_l24",
     "at_least_one_symptom",
-    "normal_imaging",
     "hospitalization_time_less_24",
     "impaired_balance_less_24",
     "impaired_learning_and_memory_less_48",
+    "normal_imaging",
     "reduced_reaction_less_48",
     "restricted_activity_more_5",
-    "surgery_not_needed",
     "other_algorithm",
-    "diagnosis"
+    "focal_neuro_transient",
+    "focal_neuro_any"
 )
-hms <- hms[heatmap_order]
-ht <- Reduce(`+`, hms)
-draw(ht, ht_gap = unit(0, "mm"))
+c_hm <- c_hm[, col_ord]
+neat_names <- c(
+    "Clinician or staff diagnosis",
+    "Loss of consciousness\n(less than 30 minutes)",
+    "Loss of consciousness\n(any duration)",
+    "Post-traumatic amnesia\n(less than 24 hours)",
+    "Post-traumatic amnesia\n(any duration)",
+    "Glasgow Coma Scale\n(less or equal to 13)",
+    "Glasgow Coma Scale\n(less or equal to 14)",
+    "Altered mental state\n(any duration)",
+    "Altered mental state\n(less than 30 minutes)",
+    "Altered mental state\n(less than 24 hours)",
+    "At least one symptom",
+    "Hospitalization\n(less than 24h)",
+    "Impaired balance\n(less than 24h)",
+    "Impaired learning/memory\n(less than 48h)",
+    "Normal structural imaging",
+    "Reduced reaction time",
+    "Restricted activity\n(more than 5d)",
+    "Other algorithm",
+    "Focal neurological signs\n(transient)",
+    "Focal neurological signs\n(any duration)"
+)
+colnames(c_hm) <- neat_names
+rnames <- rownames(c_hm)
+c_hm <- apply(c_hm[, col_ord], 2, as.numeric)
+rownames(c_hm) <- rnames
+ht <- Heatmap(
+    c_hm,
+    cluster_columns = FALSE,
+    col = c(
+      "0" = "white",
+      "1" = "blue"
+    ),
+    rect_gp = gpar(col = "black", lwd = 1),
+    heatmap_legend_param = list(
+        title = "Criterion\nUsed",
+        labels_gp = gpar(fontsize = 14),
+        title_gp = gpar(fontsize=14),
+        at = c(1, 0),
+        labels = c("Yes", "No")
+    ),
+    row_names_side = "left",
+    show_row_dend = FALSE,
+    column_names_rot = 45
+)
 
-png("figures/2026_04_14_concussion_definition.png", width = 900, height = 700)
-draw(
-  ht,
-  ht_gap = unit(0, "mm")
+crit_df <- data.frame(
+    Criterion = names(colSums(c_hm)),
+    Count = colSums(c_hm),
+    row.names = NULL
+) |>
+    dplyr::arrange(
+        -Count
+    )
+crit_df <- crit_df |>
+    dplyr::mutate(
+        Criterion = factor(Criterion, levels = crit_df$"Criterion")
+    )
+crit_bar <- crit_df |>
+    ggplot(
+        aes(
+            x = Criterion,
+            y = Count
+        )
+    ) +
+        geom_bar(stat = "identity") +
+        theme_bw() +
+        theme(axis.text.x = element_text(angle = 90, hjust=1, vjust=0.5)) +
+        theme(text = element_text(size = 12)) +
+        scale_y_continuous(breaks = seq(0, 12, by = 1), expand = c(0, 0.1)) +
+        theme(plot.margin = margin(t = 5.5, r = 5.5, b = 5.5, l = 50, unit = "pt"))
+ggsave(
+    fig_path("concussion_definition2"),
+    crit_bar,
+    width = 10,
+    height = 6,
+    dpi = 300
 )
+
+png(fig_path("concussion_definition"), width = 2600, height = 1600, res = 150)
+draw(ht, padding = unit(c(4, 2, 2, 2), "mm"))
 dev.off()
+
 
 # }}}
 ```
@@ -408,10 +436,11 @@ my_scale <- scale_x_continuous(
     labels = c("0", "10", "100", "1000", "10000", "100000")
 )
 n_plot <- n_df |>
-    ggplot(aes(x = n, fill = Sex, colour = Sex)) +
+    ggplot(aes(x = n)) +
     geom_histogram(
         alpha = 0.3,
-        bins = 25
+        bins = 25,
+        colour = "black"
     ) +
     expand_limits(x = 50) +
     my_scale +
@@ -487,7 +516,7 @@ race_hm <- Heatmap(
 )
 race_hm
 
-png("figures/2026_04_01_race_hm.png", width = 900, height = 400)
+png("figures/2026_07_02_race_hm.png", width = 3000, height = 1500, res = 300)
 draw(race_hm)
 dev.off()
 
@@ -832,7 +861,7 @@ val_hm <- Heatmap(
 
 val_hm
 
-png("figures/2026_04_01_val_method_hm.png", width = 900, height = 350)
+png("figures/2026_04_01_val_method_hm.png", width = 3000, height = 1200, res = 300)
 draw(val_hm)
 dev.off()
 # }}}
@@ -841,7 +870,6 @@ dev.off()
 ## Summary
 
 ```{r}
-# {{{
 data <- fromJSON("../extraction.json")
 options(width = 300)
 cft_dfs <- lapply(
@@ -1099,142 +1127,8 @@ names(overall_mappings) <- unlist(
     lapply(overall_mappings, function(x) unique(x$"study"))
 )
 
-my_rect <- function(l, r, y, fill, border, line = 1) {
-    rect(
-      xleft   = l,
-      xright  = r,
-      ybottom = y - 0.3,
-      ytop    = y + 0.3,  # height = 2
-      col = fill,
-      border = "#000000",
-      lwd = line
-    )
-    if (border != "#000000") {
-        points(
-            x   = (l + r) / 2,
-            y   = y,
-            pch = 21,
-            cex = 0.7,
-            bg  = border,
-            col = border
-        )
-    }
-}
+all_ranks_common <- tag_only_ranks[lapply(tag_only_ranks, length) > 1]
 
-reset_canvas <- function(fts, studies, pad_bottom) {
-    n_fts <- length(fts)
-    n_studies <- length(studies)
-    par(mar = c(pad_bottom, 8, 2, 2))  # bottom, left, top, right
-    plot(
-        0,
-        0,
-        type = "n",
-        xlim = c(0, n_fts),
-        ylim = c(0, n_studies + 1),
-        xlab = "",
-        ylab = "",
-        yaxt = "n",
-        xaxt = "n",
-        xaxs = "i",
-        yaxs = "i"
-    )
-    # grid lines
-    x_grid <- c(1:100)
-    y_grid <- seq(0.5, 100, by = 1)
-    abline(v = x_grid, col = "gray80", lty = "solid", lwd = 1)
-    # a vertical line to separate female / age
-    abline(h = y_grid, col = "gray80", lty = "solid", lwd = 1)
-    # x-axis
-    axis(1, at = seq(0.5, n_fts, by = 1), labels = fts, las = 2)
-    # y-axis
-    axis(2, at = seq(1, n_studies, by = 1), labels = studies, las = 2)
-    abline(v = 14, col = "black", lty = "solid", lwd = 2)
-}
-populate_column <- function(ranks, offset, study_names) {
-    for (study_id in 1:length(study_names)) {
-        study <- study_names[study_id]
-        generate_rects(
-            ranks[[study]],
-            overall_mappings[[study]],
-            y = study_id,
-            x_offset = offset
-        )
-    }
-}
-
-draw_tie_bracket <- function(left,
-                             right,
-                             y,
-                             gap,
-                             x_offset,
-                             y_offset = 0.47,
-                             tick_height = 0.06) {
-    segments(
-        x0 = left  + gap / 2 + x_offset + 0.05,
-        x1 = right - gap / 2 + x_offset - 0.05,
-        y0 = y - 0.45,
-        y1 = y - 0.45,
-        lwd = 2
-    )
-}
-
-generate_rects <- function(ft_ranks,
-                           overall_map,
-                           block_width = 0.95,
-                           y = 1,
-                           x_offset = 0,
-                           gap = 0.025) {
-    border_cols <- c("#000000", RColorBrewer::brewer.pal(7, name = "Accent"))
-    if (!is.null(ft_ranks)) {
-        n_colours <- length(unique(overall_map$label))
-        palette <- colorRampPalette(c("white", "black"))(n_colours)
-        overall_map$fill   <- palette[overall_map$rank]
-        overall_map$border <- border_cols[overall_map$border]
-        overall_fill <- dplyr::select(overall_map, rank, cluster, fill, border) |>
-            dplyr::rename(overall_rank = rank)
-        mapped_ranks <- dplyr::inner_join(ft_ranks, overall_fill, by = "cluster") |>
-            dplyr::arrange(rank, overall_rank)
-        n_rects <- length(mapped_ranks$cluster)
-        if (n_rects > 0) {
-            base_boundaries <- seq(0, block_width, length.out = n_rects + 1)
-            x_offset <- x_offset + (1 - block_width) / 2
-            lapply(seq_len(n_rects), function(i) {
-                left  <- base_boundaries[i]   + gap / 2
-                right <- base_boundaries[i+1] - gap / 2
-                my_rect(
-                    l = left  + x_offset,
-                    r = right + x_offset,
-                    y = y,
-                    fill   = mapped_ranks$fill[i],
-                    border = mapped_ranks$border[i]
-                )
-            })
-            # Tie detection and bracket drawing
-            ranks_vec <- mapped_ranks$rank
-            tie_groups <- rle(ranks_vec)  # run-length encoding finds consecutive equal ranks
-            idx <- 1
-            for (g in seq_along(tie_groups$lengths)) {
-                len <- tie_groups$lengths[g]
-                if (len > 1) {  # only draw bracket for actual ties
-                    i_start <- idx
-                    i_end   <- idx + len - 1
-                    grp_left  <- base_boundaries[i_start] + gap / 2
-                    grp_right <- base_boundaries[i_end + 1] - gap / 2
-                    draw_tie_bracket(
-                        left     = grp_left,
-                        right    = grp_right,
-                        y        = y,
-                        gap      = 0,      # already baked in above
-                        x_offset = x_offset
-                    )
-                }
-                idx <- idx + len
-            }
-            return(overall_map)
-        }
-    }
-}
-all_ranks_common <- tag_only_ranks[lapply(tag_only_ranks, length) > 5]
 studies <- lapply(
     all_ranks_common,
     function(x) {
@@ -1244,16 +1138,7 @@ studies <- lapply(
     unlist() |>
     as.vector() |>
     unique()
-cluster_compare_plot <- function(rank_data, studies, pad_bottom) {
-    reset_canvas(
-        fts = names(rank_data),
-        studies = studies,
-        pad_bottom
-    )
-    for (x in seq_along(rank_data)) {
-        populate_column(rank_data[[x]], x - 1, studies)
-    }
-}
+
 # We can put a number to how well sorted each feature is by spearman correlations
 calc_spearman <- function(study, feature) {
     global <- overall_mappings[[study]]
@@ -1308,22 +1193,85 @@ nums <- colMeans(res, na.rm = TRUE) |>
 sorted_names <- paste0(names(all_ranks_common[sorted_tags]), "\n(", nums, ")")
 names(sorted_ranks) <- sorted_names
 
-# Chan, Bui, Si 2018 (1 and 2) and Simons 2024
-res_df |>
-    data.frame() |>
-    dplyr::filter(Female > 0) |>
-    dplyr::select(study, Female)
+# Make a heatmap based on the individual spearman correlations
+res_hm_df <- res_df
+rownames(res_hm_df) <- res_hm_df$"study"
 
-# Blundell, Kinney, MacGregor
-res_df |>
-    data.frame() |>
-    dplyr::filter(Female < 0) |>
-    dplyr::select(study)
+weighted_means <- res_hm_df |>
+    dplyr::group_by(study_og) |>
+    dplyr::summarize(dplyr::across(c(-study), mean, na.rm = TRUE)) |>
+    dplyr::select(-study_og) |>
+    #colMeans(na.rm = TRUE) |>
+    apply(2, mean, na.rm = TRUE) |>
+    sort(decreasing = TRUE) |>
+    round(2)
+
+res_hm_df <- res_hm_df |>
+    arrange(study) |>
+    dplyr::select(-study_og, -study)
+
+res_hm_df <- res_hm_df[, names(weighted_means)]
+
+sample_sizes <- res_df |>
+    dplyr::group_by(study_og) |>
+    dplyr::summarize(
+        dplyr::across(
+            c(-study),
+            function(x) {
+                as.numeric(length(na.omit(x)) > 0)
+            }
+        )
+    ) |>
+    dplyr::select(-study_og) |>
+    colSums()
+
+
+rhm_ord <- as.matrix(res_hm_df)
+
+rhm_ord <- rhm_ord[, names(sort(sample_sizes, decreasing = TRUE))]
+
+weighted_means <- weighted_means[colnames(rhm_ord)]
+
+colnames(rhm_ord) <- paste0(
+    names(weighted_means),
+    " (", as.numeric(weighted_means), ")"
+)
+
+no_entries <- names(which(rowSums(rhm_ord, na.rm = TRUE) == 0))
+
+rhm_ord <- round(rhm_ord[setdiff(rownames(rhm_ord), no_entries), ], 1)
+
+cluster_summary_hm <- Heatmap(
+    rhm_ord,
+    cluster_rows = FALSE,
+    cluster_columns = FALSE,
+    col = circlize::colorRamp2(
+      c(-1, -0.95, -0.5, -0.25, 0, 0.25, 0.5, 0.95, 1),
+      c(
+          colorRampPalette(c("blue", "black"))(5)[1:4],
+          "black",
+          colorRampPalette(c("black", "red"))(5)[2:5]
+        )
+    ),
+    row_names_side = "left",
+    na_col = "white",
+    rect_gp = gpar(col = "black", lwd = 1),
+    #show_heatmap_legend = legend,
+    row_names_gp = gpar(fontsize = 14),
+    column_names_gp = gpar(fontsize = 14),
+    heatmap_legend_param = list(
+        title = "Correlation with\nOverall Favorability",
+        labels_gp = gpar(fontsize = 14),
+        title_gp = gpar(fontsize=14)
+    ),
+    column_names_rot = 45
+)
+
+cluster_summary_hm
 ```
 
 ```{r}
-png(fig_path("cluster_summary_plot"), width = 2000, height = 1400, res = 150)
-cluster_compare_plot(sorted_ranks, sort(studies), pad_bottom = 9)
+png(fig_path("cluster_summary_hm3"), width = 2600, height = 1600, res = 150)
+draw(cluster_summary_hm)
 dev.off()
-# }}}
 ```
